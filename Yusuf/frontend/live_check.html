@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cek Kamera Live</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding-top: 30px;
+    }
+    #status {
+      margin-top: 20px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    #video {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h2>Cek Kamera Aktif</h2>
+  <video id="video" autoplay playsinline muted></video>
+  <div id="status">🔄 Memeriksa kamera...</div>
+
+  <script>
+    const video = document.getElementById('video');
+    const statusDiv = document.getElementById('status');
+
+    async function checkCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        video.srcObject = stream;
+
+        statusDiv.innerText = "✅ Kamera aktif dan diakses";
+        setTimeout(() => {
+          stream.getTracks().forEach(track => track.stop()); // matikan setelah tes
+        }, 3000);
+      } catch (err) {
+        statusDiv.innerText = "❌ Gagal mengakses kamera: " + err.message;
+      }
+    }
+
+    checkCamera();
+  </script>
+</body>
+</html>
