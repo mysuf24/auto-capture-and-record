@@ -6,14 +6,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Utility mendaftarkan semua route untuk upload video dan serve file
 func Utility(router *gin.RouterGroup) {
-	routes := router.Group("/mysuf")
+	mysuf := router.Group("/mysuf")
 	{
-		// Upload routes
-		routes.POST("/photos", handler.UploadPhoto)
-		routes.POST("/videos", handler.UploadVideo)
+		// Upload video dengan metadata device
+		mysuf.POST("/videos", handler.UploadVideoWithDeviceInfo)
 
-		// Serve media files
-		routes.GET("/photos/:filename", handler.ServePhotoFile)
+		// Serve file video langsung via URL
+		mysuf.GET("/videos/:filename", handler.ServeVideoFile)
 	}
 }

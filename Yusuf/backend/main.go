@@ -12,40 +12,34 @@ import (
 )
 
 func init() {
+	// Load environment variables dari .env file
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}
 
-	// Buat folder tmp/photos dan tmp/videos jika belum ada
-	dirs := []string{"tmp/photos", "tmp/videos"}
-	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-			log.Fatalf("Failed to create directory %s: %v", dir, err)
-		}
-	}
-}
-
-func ensureVideoDir() {
-	path := "tmp/videos"
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := os.MkdirAll(path, os.ModePerm); err != nil {
-			log.Fatal("Failed to create videos directory:", err)
-		}
+	// Buat direktori tmp/videos jika belum ada
+	if err := os.MkdirAll("tmp/videos", os.ModePerm); err != nil {
+		log.Fatalf("Failed to create videos directory: %v", err)
 	}
 }
 
 func main() {
+	// Inisialisasi koneksi database
 	config.InitDB()
-	ensureVideoDir()
 
+	// Setup router
 	r := gin.Default()
 	r.Use(middleware.CORSMiddleware())
 
+	// Register API routes
 	api := r.Group("/api")
 	router.Utility(api)
 
-	// Pindahkan ke sini
+	// Serve video statis langsung dari /videos
 	r.Static("/videos", "./tmp/videos")
 
-	r.Run(":8090")
+	// Jalankan server di port 8090
+	if err := r.Run(":8090"); err != nil {
+		log.Fatalf("Failed to run server: %v", err)
+	}
 }
